@@ -18,11 +18,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQuickWindow>
 #include "live2ditem.h"
 
 int main(int argc, char *argv[])
 {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    QQuickWindow::setDefaultAlphaBuffer(true);
 
     QGuiApplication app(argc, argv);
 

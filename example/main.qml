@@ -21,6 +21,8 @@ import QtQuick.Window 2.15
 import Live2D 1.0
 
 Window {
+    flags: Qt.WA_TranslucentBackground
+    color: "transparent"
     Live2DItem {
         anchors.left: parent.left
         width: 1000
