@@ -1,0 +1,3 @@
+[submodule "CubismNativeFramework"]
+	path = 3rdparty/CubismNativeFramework
+	url = https://github.com/thatfuckingbird/CubismNativeFramework.git
