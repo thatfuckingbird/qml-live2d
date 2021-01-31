@@ -256,7 +256,7 @@ void Live2DItem::setMouseFollowPosition(double x, double y, bool force)
                                  -1,
                                  x,
                                  y,
-                                 true
+                                 false
                              });
     update();
 }
