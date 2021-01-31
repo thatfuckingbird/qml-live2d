@@ -15,4 +15,4 @@ A QML item to play and interact with Live2D models (requires OpenGL).
 
 License is AGPLv3+.
 Copyright of the Cubism framework and the original sample code belongs to Live2D Inc. These are available under the Live2D Open Software license.
-Cubism Core is proprietary, see https://www.live2d.com for the license agreement. The example model data is from the https://www.live2d.com samples.
+Cubism Core is proprietary, see https://www.live2d.com for the license agreement. The example model data is from the https://www.live2d.com samples and from Azur Lane.
