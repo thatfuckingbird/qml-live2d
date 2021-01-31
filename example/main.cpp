@@ -19,12 +19,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
-#include "live2ditem.h"
+#include <Live2DItem.h>
 
 int main(int argc, char *argv[])
 {
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-    QQuickWindow::setDefaultAlphaBuffer(true);
+    //Enable for translucent windows (by setting the background color of Live2DItem to Qt.transparent)
+    //QQuickWindow::setDefaultAlphaBuffer(true);
 
     QGuiApplication app(argc, argv);
 

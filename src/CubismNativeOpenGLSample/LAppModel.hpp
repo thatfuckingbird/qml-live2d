@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <QStringList>
 #include <CubismFramework.hpp>
 #include <Model/CubismUserModel.hpp>
 #include <ICubismModelSetting.hpp>
@@ -69,16 +70,17 @@ public:
      * @return                                  開始したモーションの識別番号を返す。個別のモーションが終了したか否かを判定するIsFinished()の引数で使用する。開始できない時は「-1」
      */
     Csm::CubismMotionQueueEntryHandle StartMotion(const Csm::csmChar* group, Csm::csmInt32 no, Csm::csmInt32 priority, Csm::ACubismMotion::FinishedMotionCallback onFinishedMotionHandler = NULL);
+    Csm::CubismMotionQueueEntryHandle StartMotion(const Csm::csmChar* group, const Csm::csmChar* motion, Csm::csmInt32 priority);
+    void StopAllMotions();
 
     /**
      * @brief   ランダムに選ばれたモーションの再生を開始する。
      *
      * @param[in]   group                       モーショングループ名
      * @param[in]   priority                    優先度
-     * @param[in]   onFinishedMotionHandler     モーション再生終了時に呼び出されるコールバック関数。NULLの場合、呼び出されない。
      * @return                                  開始したモーションの識別番号を返す。個別のモーションが終了したか否かを判定するIsFinished()の引数で使用する。開始できない時は「-1」
      */
-    Csm::CubismMotionQueueEntryHandle StartRandomMotion(const Csm::csmChar* group, Csm::csmInt32 priority, Csm::ACubismMotion::FinishedMotionCallback onFinishedMotionHandler = NULL);
+    Csm::CubismMotionQueueEntryHandle StartRandomMotion(const Csm::csmChar* group, Csm::csmInt32 priority);
 
     /**
      * @brief   引数で指定した表情モーションをセットする
@@ -88,31 +90,29 @@ public:
     void SetExpression(const Csm::csmChar* expressionID);
 
     /**
-     * @brief   ランダムに選ばれた表情モーションをセットする
-     *
-     */
-    void SetRandomExpression();
-
-    /**
     * @brief   イベントの発火を受け取る
     *
     */
     virtual void MotionEventFired(const Live2D::Cubism::Framework::csmString& eventValue);
 
-    /**
-     * @brief    当たり判定テスト。<br>
-     *            指定IDの頂点リストから矩形を計算し、座標が矩形範囲内か判定する。
-     *
-     * @param[in]   hitAreaName     当たり判定をテストする対象のID
-     * @param[in]   x               判定を行うX座標
-     * @param[in]   y               判定を行うY座標
-     */
-    virtual Csm::csmBool HitTest(const Csm::csmChar* hitAreaName, Csm::csmFloat32 x, Csm::csmFloat32 y);
+    QStringList HitTest(Csm::csmFloat32 x, Csm::csmFloat32 y);
+    QStringList HitAreaNames() const;
+    QStringList ExpressionNames() const;
+    QStringList MotionGroupNames() const;
+    QStringList MotionNames(const QString& groupName) const;
 
     /**
      * @brief   別ターゲットに描画する際に使用するバッファの取得
      */
     Csm::Rendering::CubismOffscreenFrame_OpenGLES2& GetRenderBuffer();
+
+    bool playRandomMotions = false;
+    Csm::csmString randomMotionGroup = "Idle";
+    bool enableBlink = true;
+    bool enableBreath = true;
+    bool enablePhysics = true;
+    bool enableLipSync = true;
+    double lipSyncValue = 0;
 
 protected:
     /**
@@ -188,5 +188,32 @@ private:
     Csm::Rendering::CubismOffscreenFrame_OpenGLES2 _renderBuffer;   ///< フレームバッファ以外の描画先
 };
 
+/*
+ * Helper to make it possible to pass capturing lambdas as function pointers.
+ * From https://stackoverflow.com/questions/7852101/c-lambda-with-captures-as-a-function-pointer
+ */
 
+template <class F>
+struct lambda_traits : lambda_traits<decltype(&F::operator())>
+{ };
 
+template <typename F, typename R, typename... Args>
+struct lambda_traits<R(F::*)(Args...)> : lambda_traits<R(F::*)(Args...) const>
+{ };
+
+template <class F, class R, class... Args>
+struct lambda_traits<R(F::*)(Args...) const> {
+    using pointer = typename std::add_pointer<R(Args...)>::type;
+
+    static pointer cify(F&& f) {
+        static F fn = std::forward<F>(f);
+        return [](Args... args) {
+            return fn(std::forward<Args>(args)...);
+        };
+    }
+};
+
+template <class F>
+inline typename lambda_traits<F>::pointer cify(F&& f) {
+    return lambda_traits<F>::cify(std::forward<F>(f));
+}

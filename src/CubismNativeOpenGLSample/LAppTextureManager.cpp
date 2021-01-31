@@ -6,7 +6,6 @@
  */
 
 #include "LAppTextureManager.hpp"
-#include <iostream>
 #include "LAppPal.hpp"
 #include <QImage>
 
@@ -67,7 +66,7 @@ LAppTextureManager::TextureInfo* LAppTextureManager::CreateTextureFromPngFile(st
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    LAppPal::ReleaseBytes(address);
+    delete[] address;
 
     LAppTextureManager::TextureInfo* textureInfo = new LAppTextureManager::TextureInfo();
     if (textureInfo != NULL)

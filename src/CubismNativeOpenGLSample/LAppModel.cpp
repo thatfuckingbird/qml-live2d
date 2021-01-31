@@ -19,7 +19,8 @@
 #include "LAppDefine.hpp"
 #include "LAppPal.hpp"
 #include "LAppTextureManager.hpp"
-#include "live2ditemrenderer.h"
+#include <Live2DItemRenderer.h>
+#include <Live2DItem.h>
 
 using namespace Live2D::Cubism::Framework;
 using namespace Live2D::Cubism::Framework::DefaultParameterId;
@@ -41,7 +42,7 @@ namespace {
         {
             LAppPal::PrintLog("[APP]delete buffer: %s", path);
         }
-        LAppPal::ReleaseBytes(buffer);
+        delete[] buffer;
     }
 }
 
@@ -378,8 +379,11 @@ void LAppModel::Update()
     _model->LoadParameters(); // 前回セーブされた状態をロード
     if (_motionManager->IsFinished())
     {
-        // モーションの再生がない場合、待機モーションの中からランダムで再生する
-        StartRandomMotion(MotionGroupIdle, PriorityIdle);
+        if(playRandomMotions)
+        {
+            // モーションの再生がない場合、待機モーションの中からランダムで再生する
+            StartRandomMotion(randomMotionGroup.GetRawString(), static_cast<int>(Live2DItem::Priority::Idle));
+        }
     }
     else
     {
@@ -391,7 +395,7 @@ void LAppModel::Update()
     // まばたき
     if (!motionUpdated)
     {
-        if (_eyeBlink != NULL)
+        if (_eyeBlink != NULL && enableBlink)
         {
             // メインモーションの更新がないとき
             _eyeBlink->UpdateParameters(_model, deltaTimeSeconds); // 目パチ
@@ -417,13 +421,13 @@ void LAppModel::Update()
     _model->AddParameterValue(_idParamEyeBallY, _dragY);
 
     // 呼吸など
-    if (_breath != NULL)
+    if (_breath != NULL && enableBreath)
     {
         _breath->UpdateParameters(_model, deltaTimeSeconds);
     }
 
     // 物理演算の設定
-    if (_physics != NULL)
+    if (_physics != NULL && enablePhysics)
     {
         _physics->Evaluate(_model, deltaTimeSeconds);
     }
@@ -431,7 +435,7 @@ void LAppModel::Update()
     // リップシンクの設定
     if (_lipSync)
     {
-        csmFloat32 value = 0; // リアルタイムでリップシンクを行う場合、システムから音量を取得して0〜1の範囲で値を入力します。
+        csmFloat32 value = enableLipSync ? lipSyncValue : 0; // リアルタイムでリップシンクを行う場合、システムから音量を取得して0〜1の範囲で値を入力します。
 
         for (csmUint32 i = 0; i < _lipSyncIds.GetSize(); ++i)
         {
@@ -451,7 +455,7 @@ void LAppModel::Update()
 
 CubismMotionQueueEntryHandle LAppModel::StartMotion(const csmChar* group, csmInt32 no, csmInt32 priority, ACubismMotion::FinishedMotionCallback onFinishedMotionHandler)
 {
-    if (priority == PriorityForce)
+    if (priority == static_cast<int>(Live2DItem::Priority::Force))
     {
         _motionManager->SetReservePriority(priority);
     }
@@ -461,6 +465,7 @@ CubismMotionQueueEntryHandle LAppModel::StartMotion(const csmChar* group, csmInt
         {
             LAppPal::PrintLog("[APP]can't start motion.");
         }
+        if(onFinishedMotionHandler) onFinishedMotionHandler(nullptr);
         return InvalidMotionQueueEntryHandleValue;
     }
 
@@ -479,7 +484,6 @@ CubismMotionQueueEntryHandle LAppModel::StartMotion(const csmChar* group, csmInt
         csmByte* buffer;
         csmSizeInt size;
         buffer = CreateBuffer(path.GetRawString(), &size);
-        buffer = CreateBuffer(path.GetRawString(), &size);
         if(size != 0) {
             motion = static_cast<CubismMotion*>(LoadMotion(buffer, size, NULL, onFinishedMotionHandler));
             csmFloat32 fadeTime = _modelSetting->GetMotionFadeInTimeValue(group, no);
@@ -495,6 +499,9 @@ CubismMotionQueueEntryHandle LAppModel::StartMotion(const csmChar* group, csmInt
             }
             motion->SetEffectIds(_eyeBlinkIds, _lipSyncIds);
             autoDelete = true; // 終了時にメモリから削除
+        } else {
+            if(onFinishedMotionHandler) onFinishedMotionHandler(nullptr);
+            return InvalidMotionQueueEntryHandleValue;
         }
         DeleteBuffer(buffer, path.GetRawString());
     }
@@ -518,7 +525,29 @@ CubismMotionQueueEntryHandle LAppModel::StartMotion(const csmChar* group, csmInt
     return  _motionManager->StartMotionPriority(motion, autoDelete, priority);
 }
 
-CubismMotionQueueEntryHandle LAppModel::StartRandomMotion(const csmChar* group, csmInt32 priority, ACubismMotion::FinishedMotionCallback onFinishedMotionHandler)
+CubismMotionQueueEntryHandle LAppModel::StartMotion(const csmChar *group, const csmChar *motion, csmInt32 priority)
+{
+    auto finishedCallback = cify([&, groupStr = QString{group}, motionStr = QString{motion}](ACubismMotion* m) -> void {
+        if(renderer) emit renderer->motionFinished(m, groupStr, motionStr);
+    });
+
+    auto count = _modelSetting->GetMotionCount(group);
+    csmString motionName = motion;
+    for(auto i = 0; i < count; ++i) {
+        if(_modelSetting->GetMotionFileName(group, i) == motionName) {
+            return StartMotion(group, i, priority, finishedCallback);
+        }
+    }
+    finishedCallback(nullptr);
+    return InvalidMotionQueueEntryHandleValue;
+}
+
+void LAppModel::StopAllMotions()
+{
+    _motionManager->StopAllMotions();
+}
+
+CubismMotionQueueEntryHandle LAppModel::StartRandomMotion(const csmChar* group, csmInt32 priority)
 {
     if (_modelSetting->GetMotionCount(group) == 0)
     {
@@ -527,7 +556,10 @@ CubismMotionQueueEntryHandle LAppModel::StartRandomMotion(const csmChar* group, 
 
     csmInt32 no = rand() % _modelSetting->GetMotionCount(group);
 
-    return StartMotion(group, no, priority, onFinishedMotionHandler);
+    auto finishedCallback = cify([&, groupStr = QString{group}, motionStr = QString{_modelSetting->GetMotionFileName(group, no)}](ACubismMotion* motion) -> void {
+        if(renderer) emit renderer->motionFinished(motion, groupStr, motionStr);
+    });
+    return StartMotion(group, no, priority, finishedCallback);
 }
 
 void LAppModel::DoDraw()
@@ -554,23 +586,63 @@ void LAppModel::Draw(CubismMatrix44& matrix)
     DoDraw();
 }
 
-csmBool LAppModel::HitTest(const csmChar* hitAreaName, csmFloat32 x, csmFloat32 y)
+QStringList LAppModel::HitTest(csmFloat32 x, csmFloat32 y)
 {
     // 透明時は当たり判定なし。
     if (_opacity < 1)
     {
-        return false;
+        return {};
     }
+
+    QStringList result;
     const csmInt32 count = _modelSetting->GetHitAreasCount();
     for (csmInt32 i = 0; i < count; i++)
     {
-        if (strcmp(_modelSetting->GetHitAreaName(i), hitAreaName) == 0)
-        {
-            const CubismIdHandle drawID = _modelSetting->GetHitAreaId(i);
-            return IsHit(drawID, x, y);
-        }
+        const CubismIdHandle drawID = _modelSetting->GetHitAreaId(i);
+        if(IsHit(drawID, x, y)) result.append(_modelSetting->GetHitAreaName(i));
     }
-    return false; // 存在しない場合はfalse
+    return result;
+}
+
+QStringList LAppModel::HitAreaNames() const
+{
+    QStringList result;
+    const csmInt32 count = _modelSetting->GetHitAreasCount();
+    for (csmInt32 i = 0; i < count; i++)
+    {
+        result.append(_modelSetting->GetHitAreaName(i));
+    }
+    return result;
+}
+
+QStringList LAppModel::ExpressionNames() const
+{
+    QStringList result;
+    for (auto map_ite = _expressions.Begin(); map_ite != _expressions.End(); map_ite++)
+    {
+        result.append((*map_ite).First.GetRawString());
+    }
+    return result;
+}
+
+QStringList LAppModel::MotionGroupNames() const
+{
+    QStringList result;
+    int count = _modelSetting->GetMotionGroupCount();
+    for(int i = 0; i < count; ++i) {
+        result.append(_modelSetting->GetMotionGroupName(i));
+    }
+    return result;
+}
+
+QStringList LAppModel::MotionNames(const QString &groupName) const
+{
+    QStringList result;
+    int count = _modelSetting->GetMotionCount(groupName.toStdString().c_str());
+    for(int i = 0; i < count; ++i) {
+        result.append(_modelSetting->GetMotionFileName(groupName.toStdString().c_str(), i));
+    }
+    return result;
 }
 
 void LAppModel::SetExpression(const csmChar* expressionID)
@@ -583,33 +655,11 @@ void LAppModel::SetExpression(const csmChar* expressionID)
 
     if (motion != NULL)
     {
-        _expressionManager->StartMotionPriority(motion, false, PriorityForce);
+        _expressionManager->StartMotionPriority(motion, false, static_cast<int>(Live2DItem::Force));
     }
     else
     {
         if (_debugMode) LAppPal::PrintLog("[APP]expression[%s] is null ", expressionID);
-    }
-}
-
-void LAppModel::SetRandomExpression()
-{
-    if (_expressions.GetSize() == 0)
-    {
-        return;
-    }
-
-    csmInt32 no = rand() % _expressions.GetSize();
-    csmMap<csmString, ACubismMotion*>::const_iterator map_ite;
-    csmInt32 i = 0;
-    for (map_ite = _expressions.Begin(); map_ite != _expressions.End(); map_ite++)
-    {
-        if (i == no)
-        {
-            csmString name = (*map_ite).First;
-            SetExpression(name.GetRawString());
-            return;
-        }
-        i++;
     }
 }
 

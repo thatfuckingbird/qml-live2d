@@ -23,8 +23,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "LAppTextureManager.hpp"
 #include "LAppDefine.hpp"
 #include "LAppAllocator.hpp"
-#include "live2ditem.h"
-#include "live2ditemrenderer.h"
+#include "LAppModel.hpp"
+#include <Live2DItem.h>
+#include <Live2DItemRenderer.h>
 #include <QQuickWindow>
 
 using namespace Live2D::Cubism::Framework;
@@ -82,8 +83,11 @@ void Live2DItemRenderer::initializeCubism()
     {
         m_frameworkInitialized = true;
 
-        _cubismOption.LogFunction = LAppPal::PrintMessage;
-        _cubismOption.LoggingLevel = LAppDefine::CubismLoggingLevel;
+        LAppDefine::DebugLogEnable = Live2DItem::logLevel == Live2DItem::LogLevel::Verbose || Live2DItem::logLevel == Live2DItem::LogLevel::Debug;
+        LAppDefine::DebugTouchLogEnable = Live2DItem::logLevel == Live2DItem::LogLevel::Verbose;
+
+        _cubismOption.LogFunction = Live2DItem::logFunction;
+        _cubismOption.LoggingLevel = static_cast<CubismFramework::Option::LogLevel>(Live2DItem::logLevel);
         Csm::CubismFramework::StartUp(&_cubismAllocator, &_cubismOption);
 
         CubismFramework::Initialize();
@@ -126,6 +130,30 @@ GLuint Live2DItemRenderer::createShader() const
     glUseProgram(programId);
 
     return programId;
+}
+
+QStringList Live2DItemRenderer::hitAreaNames() const
+{
+    if(auto model = m_appManager->GetModel()) return model->HitAreaNames();
+    return {};
+}
+
+QStringList Live2DItemRenderer::expressionNames() const
+{
+    if(auto model = m_appManager->GetModel()) return model->ExpressionNames();
+    return {};
+}
+
+QStringList Live2DItemRenderer::motionGroupNames() const
+{
+    if(auto model = m_appManager->GetModel()) return model->MotionGroupNames();
+    return {};
+}
+
+QStringList Live2DItemRenderer::motionNames(const QString &group) const
+{
+    if(auto model = m_appManager->GetModel()) return model->MotionNames(group);
+    return {};
 }
 
 int Live2DItemRenderer::getWidth() const
@@ -226,12 +254,28 @@ void Live2DItemRenderer::synchronize(QQuickFramebufferObject *item)
         m_textureManager = new LAppTextureManager();
         m_view->Initialize();
         m_view->InitializeSprite(m_modelPath, m_backgroundPath);
+
+        emit modelReady();
     }
-    for(const auto& ev: l2d->m_mouseEventQueue)
+    for(int i = 0; i < l2d->m_mouseEventQueue.size(); i++)
     {
-        processMouseEvent(&ev);
+        processMouseEvent(&l2d->m_mouseEventQueue.at(i));
     }
     l2d->m_mouseEventQueue.clear();
+    if(auto model = m_appManager->GetModel()) {
+        model->playRandomMotions = l2d->m_playRandomMotions;
+        model->randomMotionGroup = l2d->m_randomMotionGroup.toStdString().c_str();
+        model->enableBlink = l2d->m_enableBlink;
+        model->enableBreath = l2d->m_enableBreath;
+        model->enablePhysics = l2d->m_enablePhysics;
+        model->enableLipSync = l2d->m_enableLipSync;
+        model->lipSyncValue = l2d->m_lipSyncValue;
+    }
+    for(int i = 0; i < l2d->m_motionRequestQueue.size(); i++)
+    {
+        processMotionRequest(&l2d->m_motionRequestQueue.at(i));
+    }
+    l2d->m_motionRequestQueue.clear();
 }
 
 void Live2DItemRenderer::processMouseEvent(const MouseEventData* event)
@@ -254,5 +298,21 @@ void Live2DItemRenderer::processMouseEvent(const MouseEventData* event)
         m_mouseX = event->x;
         m_mouseY = event->y;
         m_view->OnTouchesMoved(m_mouseX, m_mouseY);
+    }
+}
+
+void Live2DItemRenderer::processMotionRequest(const MotionRequestData *request)
+{
+    auto model = m_appManager->GetModel();
+    if(!model) return;
+
+    if(request->type == MotionRequestData::Type::StopAll)
+    {
+        model->StopAllMotions();
+    } else if(request->type == MotionRequestData::Type::Expression)
+    {
+        model->SetExpression(request->name.toStdString().c_str());
+    } else if(request->type == MotionRequestData::Type::Motion) {
+        model->StartMotion(request->group.toStdString().c_str(), request->name.toStdString().c_str(), request->priority);
     }
 }

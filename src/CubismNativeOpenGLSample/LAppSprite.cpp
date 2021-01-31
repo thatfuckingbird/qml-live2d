@@ -6,7 +6,7 @@
  */
 
 #include "LAppSprite.hpp"
-#include "live2ditemrenderer.h"
+#include <Live2DItemRenderer.h>
 
 LAppSprite::LAppSprite(Live2DItemRenderer* renderer, float x, float y, float width, float height, GLuint textureId, GLuint programId)
     : renderer(renderer), _rect()

@@ -16,7 +16,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "live2ditem.h"
+#include <Live2DItem.h>
 #include <iostream>
 #include <sstream>
 #include <unistd.h>
@@ -30,11 +30,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <GL/glew.h>
 #include "Type/csmVector.hpp"
 #include "LAppAllocator.hpp"
-#include "live2ditemrenderer.h"
+#include <Live2DItemRenderer.h>
 #include <QQuickWindow>
 
 using namespace Csm;
 using namespace LAppDefine;
+
+Live2DItem::LogLevel Live2DItem::logLevel = Live2DItem::LogLevel::Off;
+Live2DItem::LogFunction Live2DItem::logFunction = &Live2DItem::defaultLogFunction;
 
 Live2DItem::Live2DItem(QQuickItem *parent) : QQuickFramebufferObject(parent)
 {
@@ -90,6 +93,184 @@ QColor Live2DItem::backgroundColor() const
     return m_backgroundColor;
 }
 
+QString Live2DItem::randomMotionGroup() const
+{
+    return m_randomMotionGroup;
+}
+
+bool Live2DItem::playRandomMotions() const
+{
+    return m_playRandomMotions;
+}
+
+bool Live2DItem::blinkingEnabled() const
+{
+    return m_enableBlink;
+}
+
+bool Live2DItem::breathingEnabled() const
+{
+    return m_enableBreath;
+}
+
+bool Live2DItem::physicsEnabled() const
+{
+    return m_enablePhysics;
+}
+
+bool Live2DItem::lipSyncEnabled() const
+{
+    return m_enableLipSync;
+}
+
+double Live2DItem::lipSyncValue() const
+{
+    return m_lipSyncValue;
+}
+
+bool Live2DItem::followMouse() const
+{
+    return m_followMouse;
+}
+
+bool Live2DItem::reactToTouch() const
+{
+    return m_reactToTouch;
+}
+
+void Live2DItem::setRandomMotionGroup(const QString &groupName)
+{
+    if(m_randomMotionGroup != groupName) {
+        m_randomMotionGroup = groupName;
+        emit randomMotionGroupChanged(groupName);
+    }
+}
+
+void Live2DItem::setPlayRandomMotions(bool enabled)
+{
+    if(m_playRandomMotions != enabled) {
+        m_playRandomMotions = enabled;
+        emit playRandomMotionsChanged(enabled);
+    }
+}
+
+void Live2DItem::setBlinkingEnabled(bool enabled)
+{
+    if(m_enableBlink != enabled) {
+        m_enableBlink = enabled;
+        emit blinkingEnabledChanged(enabled);
+    }
+}
+
+void Live2DItem::setBreathingEnabled(bool enabled)
+{
+    if(m_enableBreath != enabled) {
+        m_enableBreath = enabled;
+        emit breathingEnabledChanged(enabled);
+    }
+}
+
+void Live2DItem::setPhysicsEnabled(bool enabled)
+{
+    if(m_enablePhysics != enabled) {
+        m_enablePhysics = enabled;
+        emit physicsEnabledChanged(enabled);
+    }
+}
+
+void Live2DItem::setLipSyncEnabled(bool enabled)
+{
+    if(m_enableLipSync != enabled) {
+        m_enableLipSync = enabled;
+        emit lipSyncEnabledChanged(enabled);
+    }
+}
+
+void Live2DItem::setLipSyncValue(double value)
+{
+    if(m_lipSyncValue != value) {
+        m_lipSyncValue = value;
+        emit lipSyncValueChanged(value);
+    }
+}
+
+void Live2DItem::setFollowMouse(bool enabled)
+{
+    if(m_followMouse != enabled) {
+        m_followMouse = enabled;
+        emit followMouseChanged(enabled);
+    }
+}
+
+void Live2DItem::setReactToTouch(bool enabled)
+{
+    if(m_reactToTouch != enabled) {
+        m_reactToTouch = enabled;
+        emit reactToTouchChanged(enabled);
+    }
+}
+
+QStringList Live2DItem::hitAreas() const
+{
+    // TODO: This is not thread-safe
+    if(m_renderer) return m_renderer->hitAreaNames();
+    return {};
+}
+
+QStringList Live2DItem::expressions() const
+{
+    // TODO: This is not thread-safe
+    if(m_renderer) return m_renderer->expressionNames();
+    return {};
+}
+
+QStringList Live2DItem::motionGroups() const
+{
+    if(m_renderer) return m_renderer->motionGroupNames();
+    return {};
+}
+
+QStringList Live2DItem::motions(const QString &group) const
+{
+    if(m_renderer) return m_renderer->motionNames(group);
+    return {};
+}
+
+void Live2DItem::setExpression(const QString &expressionName)
+{
+    m_motionRequestQueue.append({
+                                    MotionRequestData::Type::Expression,
+                                    {},
+                                    expressionName,
+                                    {}
+                                });
+}
+
+void Live2DItem::startMotion(const QString &motionGroup, const QString &motion, Live2DItem::Priority priority)
+{
+    m_motionRequestQueue.append({
+                                    MotionRequestData::Type::Motion,
+                                    motionGroup,
+                                    motion,
+                                    priority
+                                });
+}
+
+void Live2DItem::stopAllMotions()
+{
+    m_motionRequestQueue.append({
+                                    MotionRequestData::Type::StopAll,
+                                    {},
+                                    {},
+                                    {}
+                                });
+}
+
+void Live2DItem::defaultLogFunction(const char *message)
+{
+    std::cerr << message << std::endl;
+}
+
 Live2DItem::~Live2DItem()
 {
 
@@ -98,13 +279,37 @@ Live2DItem::~Live2DItem()
 QQuickFramebufferObject::Renderer *Live2DItem::createRenderer() const
 {
     window()->setPersistentOpenGLContext(true);
-    //window()->setPersistentSceneGraph(true);
     auto renderer = new Live2DItemRenderer(const_cast<Live2DItem*>(this));
+
+    if(m_renderer) {
+        disconnect(m_renderer, &QObject::destroyed, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::hitAreasTapped, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::tapped, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::touched, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::hitAreasTouched, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::dragged, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::modelReady, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::motionFinished, this, nullptr);
+    }
+    connect(renderer, &QObject::destroyed, this, [&](){
+        m_renderer = nullptr;
+    });
+    connect(renderer, &Live2DItemRenderer::hitAreasTapped, this, &Live2DItem::hitAreasTapped);
+    connect(renderer, &Live2DItemRenderer::tapped, this, &Live2DItem::tapped);
+    connect(renderer, &Live2DItemRenderer::touched, this, &Live2DItem::touched);
+    connect(renderer, &Live2DItemRenderer::hitAreasTouched, this, &Live2DItem::hitAreasTouched);
+    connect(renderer, &Live2DItemRenderer::dragged, this, &Live2DItem::dragged);
+    connect(renderer, &Live2DItemRenderer::modelReady, this, &Live2DItem::modelReady);
+    connect(renderer, &Live2DItemRenderer::motionFinished, this, &Live2DItem::motionFinished);
+
+    m_renderer = renderer;
     return renderer;
 }
 
 void Live2DItem::hoverMoveEvent(QHoverEvent *event)
 {
+    if(!m_followMouse && !m_reactToTouch) return;
+    if(!m_followMouse && !m_mousePressed) return;
     m_mouseEventQueue.append({
                                  QMouseEvent::MouseMove,
                                  -1,
@@ -116,7 +321,8 @@ void Live2DItem::hoverMoveEvent(QHoverEvent *event)
 
 void Live2DItem::mousePressEvent(QMouseEvent *event)
 {
-    if(event->button() != Qt::LeftButton) return;
+    m_mousePressed = true;
+    if(event->button() != Qt::LeftButton || !m_reactToTouch) return;
     m_mouseEventQueue.append({
                                  QMouseEvent::MouseButtonPress,
                                  Qt::LeftButton,
@@ -128,7 +334,8 @@ void Live2DItem::mousePressEvent(QMouseEvent *event)
 
 void Live2DItem::mouseReleaseEvent(QMouseEvent *event)
 {
-    if(event->button() != Qt::LeftButton) return;
+    m_mousePressed = false;
+    if(event->button() != Qt::LeftButton || !m_reactToTouch) return;
     m_mouseEventQueue.append({
                                  QMouseEvent::MouseButtonRelease,
                                  Qt::LeftButton,
@@ -140,6 +347,8 @@ void Live2DItem::mouseReleaseEvent(QMouseEvent *event)
 
 void Live2DItem::hoverEnterEvent(QHoverEvent *event)
 {
+    if(!m_followMouse && !m_reactToTouch) return;
+    if(!m_followMouse && !m_mousePressed) return;
     m_mouseEventQueue.append({
                                  QMouseEvent::MouseMove,
                                  -1,

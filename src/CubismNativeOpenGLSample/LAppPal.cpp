@@ -9,12 +9,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <sys/stat.h>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 #include <GL/glew.h>
 #include <Model/CubismMoc.hpp>
 #include "LAppDefine.hpp"
+#include <Live2DItem.h>
 
 using std::endl;
 using namespace Csm;
@@ -23,19 +24,15 @@ using namespace LAppDefine;
 
 csmByte* LAppPal::LoadFileAsBytes(const string filePath, csmSizeInt* outSize)
 {
-    //filePath;//
     const char* path = filePath.c_str();
 
-    int size = 0;
-    struct stat statBuf;
-    if (stat(path, &statBuf) == 0)
+    int size = std::filesystem::file_size(filePath);
+    if (DebugLogEnable)
     {
-        size = statBuf.st_size;
         PrintLog(path);
     }
 
     std::fstream file;
-    char* buf = new char[size];
 
     file.open(path, std::ios::in | std::ios::binary);
     if (!file.is_open())
@@ -46,6 +43,7 @@ csmByte* LAppPal::LoadFileAsBytes(const string filePath, csmSizeInt* outSize)
         }
         return NULL;
     }
+    char* buf = new char[size];
     file.read(buf, size);
     file.close();
 
@@ -53,22 +51,12 @@ csmByte* LAppPal::LoadFileAsBytes(const string filePath, csmSizeInt* outSize)
     return reinterpret_cast<csmByte*>(buf);
 }
 
-void LAppPal::ReleaseBytes(csmByte* byteData)
-{
-    delete[] byteData;
-}
-
 void LAppPal::PrintLog(const csmChar* format, ...)
 {
     va_list args;
-    csmChar buf[256];
+    csmChar buf[512] = {0};
     va_start(args, format);
     vsnprintf(buf, sizeof(buf), format, args); // 標準出力でレンダリング
-    std::cerr << buf << std::endl;
+    Live2DItem::logFunction(buf);
     va_end(args);
-}
-
-void LAppPal::PrintMessage(const csmChar* message)
-{
-    PrintLog("%s", message);
 }

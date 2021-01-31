@@ -19,7 +19,7 @@
 #include <Rendering/OpenGL/CubismOffscreenSurface_OpenGLES2.hpp>
 #include <Rendering/OpenGL/CubismRenderer_OpenGLES2.hpp>
 
-#include "live2ditemrenderer.h"
+#include <Live2DItemRenderer.h>
 
 using namespace std;
 using namespace LAppDefine;
@@ -111,16 +111,13 @@ void LAppView::Render()
             1.0f, 0.0f,
         };
 
-        for(csmUint32 i=0; i<Live2DManager->GetModelNum(); i++)
-        {
-            float alpha = GetSpriteAlpha(i); // サンプルとしてαに適当な差をつける
-            _renderSprite->SetColor(1.0f, 1.0f, 1.0f, alpha);
+        float alpha = GetSpriteAlpha(0); // サンプルとしてαに適当な差をつける
+        _renderSprite->SetColor(1.0f, 1.0f, 1.0f, alpha);
 
-            LAppModel *model = Live2DManager->GetModel(i);
-            if (model)
-            {
-                _renderSprite->RenderImmidiate(model->GetRenderBuffer().GetColorBuffer(), uvVertex);
-            }
+        LAppModel *model = Live2DManager->GetModel();
+        if (model)
+        {
+            _renderSprite->RenderImmidiate(model->GetRenderBuffer().GetColorBuffer(), uvVertex);
         }
     }
 }
@@ -153,6 +150,11 @@ void LAppView::InitializeSprite(const QString& modelPath, const QString& backgro
 void LAppView::OnTouchesBegan(float px, float py) const
 {
     _touchManager->TouchesBegan(px, py);
+
+    float x = _deviceToScreen->TransformX(_touchManager->GetX()); // 論理座標変換した座標を取得。
+    float y = _deviceToScreen->TransformY(_touchManager->GetY()); // 論理座標変換した座標を取得。
+    LAppLive2DManager* live2DManager = renderer->getAppManager();
+    live2DManager->OnTap(true, x, y);
 }
 
 void LAppView::OnTouchesMoved(float px, float py) const
@@ -180,7 +182,7 @@ void LAppView::OnTouchesEnded(float px, float py) const
         {
             LAppPal::PrintLog("[APP]touchesEnded x:%.2f y:%.2f", x, y);
         }
-        live2DManager->OnTap(x, y);
+        live2DManager->OnTap(false, x, y);
     }
 }
 

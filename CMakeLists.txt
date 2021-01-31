@@ -35,9 +35,9 @@ add_subdirectory(3rdparty/CubismNativeFramework)
 
 add_library(qml-live2d STATIC
     src/live2ditem.cpp
-    include/live2ditem.h
+    include/Live2DItem.h
     src/live2ditemrenderer.cpp
-    include/live2ditemrenderer.h
+    include/Live2DItemRenderer.h
     src/CubismNativeOpenGLSample/LAppAllocator.cpp
     src/CubismNativeOpenGLSample/LAppAllocator.hpp
     src/CubismNativeOpenGLSample/LAppDefine.cpp
@@ -61,8 +61,8 @@ add_library(qml-live2d STATIC
 add_executable(qml-live2d-example
     example/main.cpp
     example/qml.qrc
-    include/live2ditem.h
-    include/live2ditemrenderer.h
+    include/Live2DItem.h
+    include/Live2DItemRenderer.h
 )
 
 target_link_libraries(qml-live2d PRIVATE Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Quick Framework OpenGL::GL GLEW::glew Live2DCubismCore)

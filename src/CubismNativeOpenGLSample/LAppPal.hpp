@@ -30,16 +30,6 @@ namespace LAppPal
     */
     Csm::csmByte* LoadFileAsBytes(const std::string filePath, Csm::csmSizeInt* outSize);
 
-
-    /**
-    * @brief バイトデータを解放する
-    *
-    * バイトデータを解放する
-    *
-    * @param[in]   byteData    解放したいバイトデータ
-    */
-    void ReleaseBytes(Csm::csmByte* byteData);
-
     /**
     * @brief ログを出力する
     *
@@ -50,14 +40,4 @@ namespace LAppPal
     *
     */
     void PrintLog(const Csm::csmChar* format, ...);
-
-    /**
-    * @brief メッセージを出力する
-    *
-    * メッセージを出力する
-    *
-    * @param[in]   message  文字列
-    *
-    */
-    void PrintMessage(const Csm::csmChar* message);
 };

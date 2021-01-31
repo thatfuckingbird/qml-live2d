@@ -29,13 +29,13 @@ public:
     * @param[in]   no  モデルリストのインデックス値
     * @return      モデルのインスタンスを返す。インデックス値が範囲外の場合はNULLを返す。
     */
-    LAppModel* GetModel(Csm::csmUint32 no) const;
+    LAppModel* GetModel() const;
 
     /**
     * @brief   現在のシーンで保持しているすべてのモデルを解放する
     *
     */
-    void ReleaseAllModel();
+    void ReleaseModel();
 
     /**
     * @brief   画面をドラッグしたときの処理
@@ -51,7 +51,7 @@ public:
     * @param[in]   x   画面のX座標
     * @param[in]   y   画面のY座標
     */
-    void OnTap(Csm::csmFloat32 x, Csm::csmFloat32 y);
+    void OnTap(bool touchBegin, Csm::csmFloat32 x, Csm::csmFloat32 y);
 
     /**
     * @brief   画面を更新するときの処理
@@ -66,12 +66,6 @@ public:
     void ChangeScene(const QString& modelPath);
 
     /**
-     * @brief   モデル個数を得る
-     * @return  所持モデル個数
-     */
-    Csm::csmUint32 GetModelNum() const;
-
-    /**
     * @brief  コンストラクタ
     */
     LAppLive2DManager(Live2DItemRenderer* renderer);
@@ -84,5 +78,5 @@ public:
 private:
     Live2DItemRenderer* renderer = nullptr;
     Csm::CubismMatrix44*        _viewMatrix; ///< モデル描画に用いるView行列
-    Csm::csmVector<LAppModel*>  _models; ///< モデルインスタンスのコンテナ
+    LAppModel*  _model = nullptr; ///< モデルインスタンスのコンテナ
 };

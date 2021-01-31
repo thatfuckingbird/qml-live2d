@@ -28,9 +28,11 @@ Window {
         width: 1000
         height: 1000
         modelPath: "data/Hiyori"
+        playRandomMotions: true
     }
 
     Live2DItem {
+        id: live2D2
         backgroundColor: "gray"
         anchors.right: parent.right
         width: 1000
