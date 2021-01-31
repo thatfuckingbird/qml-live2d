@@ -68,7 +68,7 @@ public:
     virtual ~Live2DItemRenderer();
 
 signals:
-    void dragged(double x, double y);
+    void cursorMoved(double x, double y);
     void tapped(double x, double y);
     void hitAreasTapped(const QStringList& hitAreaNames);
     void touched(double x, double y);

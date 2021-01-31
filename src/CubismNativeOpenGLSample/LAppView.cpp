@@ -157,8 +157,12 @@ void LAppView::OnTouchesBegan(float px, float py) const
     live2DManager->OnTap(true, x, y);
 }
 
-void LAppView::OnTouchesMoved(float px, float py) const
+void LAppView::OnTouchesMoved(float px, float py, bool override) const
 {
+    if(override) {
+        _touchManager->TouchesMoved(px, py);
+    }
+
     float viewX = this->TransformViewX(_touchManager->GetX());
     float viewY = this->TransformViewY(_touchManager->GetY());
 
@@ -168,7 +172,7 @@ void LAppView::OnTouchesMoved(float px, float py) const
     Live2DManager->OnDrag(viewX, viewY);
 }
 
-void LAppView::OnTouchesEnded(float px, float py) const
+void LAppView::OnTouchesEnded(float, float) const
 {
     // タッチ終了
     LAppLive2DManager* live2DManager = renderer->getAppManager();

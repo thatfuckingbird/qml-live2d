@@ -29,6 +29,7 @@ struct MouseEventData
     int button;
     double x;
     double y;
+    bool override;
 };
 
 struct MotionRequestData
@@ -98,6 +99,8 @@ public:
     Q_INVOKABLE QStringList expressions() const;
     Q_INVOKABLE QStringList motionGroups() const;
     Q_INVOKABLE QStringList motions(const QString& group) const;
+    Q_INVOKABLE void resetMouseFollowPosition();
+    Q_INVOKABLE void setMouseFollowPosition(double x, double y, bool force = false);
     enum Priority
     {
         None = 0,
@@ -139,7 +142,7 @@ signals:
     void hitAreasTapped(const QStringList& hitAreas);
     void touched(double x, double y);
     void hitAreasTouched(const QStringList& hitAreas);
-    void dragged(double x, double y);
+    void cursorMoved(double x, double y);
     void modelReady();
     void randomMotionGroupChanged(const QString&);
     void playRandomMotionsChanged(bool);
@@ -148,7 +151,7 @@ signals:
     void physicsEnabledChanged(bool);
     void lipSyncEnabledChanged(bool);
     void lipSyncValueChanged(double);
-    void motionFinished(bool null, const QString& motionGroup, const QString& motion);
+    void motionFinished(bool isNull, const QString& motionGroup, const QString& motion);
     void reactToTouchChanged(bool);
     void followMouseChanged(bool);
 

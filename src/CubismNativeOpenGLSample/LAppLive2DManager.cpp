@@ -50,7 +50,7 @@ LAppModel* LAppLive2DManager::GetModel() const
 void LAppLive2DManager::OnDrag(csmFloat32 x, csmFloat32 y) const
 {
     if(_model) _model->SetDragging(x, y);
-    renderer->dragged(x, y);
+    renderer->cursorMoved(x, y);
 }
 
 void LAppLive2DManager::OnTap(bool touchBegin, csmFloat32 x, csmFloat32 y)

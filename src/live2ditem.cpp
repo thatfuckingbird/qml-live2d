@@ -143,6 +143,7 @@ void Live2DItem::setRandomMotionGroup(const QString &groupName)
     if(m_randomMotionGroup != groupName) {
         m_randomMotionGroup = groupName;
         emit randomMotionGroupChanged(groupName);
+        update();
     }
 }
 
@@ -151,6 +152,7 @@ void Live2DItem::setPlayRandomMotions(bool enabled)
     if(m_playRandomMotions != enabled) {
         m_playRandomMotions = enabled;
         emit playRandomMotionsChanged(enabled);
+        update();
     }
 }
 
@@ -159,6 +161,7 @@ void Live2DItem::setBlinkingEnabled(bool enabled)
     if(m_enableBlink != enabled) {
         m_enableBlink = enabled;
         emit blinkingEnabledChanged(enabled);
+        update();
     }
 }
 
@@ -167,6 +170,7 @@ void Live2DItem::setBreathingEnabled(bool enabled)
     if(m_enableBreath != enabled) {
         m_enableBreath = enabled;
         emit breathingEnabledChanged(enabled);
+        update();
     }
 }
 
@@ -175,6 +179,7 @@ void Live2DItem::setPhysicsEnabled(bool enabled)
     if(m_enablePhysics != enabled) {
         m_enablePhysics = enabled;
         emit physicsEnabledChanged(enabled);
+        update();
     }
 }
 
@@ -183,6 +188,7 @@ void Live2DItem::setLipSyncEnabled(bool enabled)
     if(m_enableLipSync != enabled) {
         m_enableLipSync = enabled;
         emit lipSyncEnabledChanged(enabled);
+        update();
     }
 }
 
@@ -191,6 +197,7 @@ void Live2DItem::setLipSyncValue(double value)
     if(m_lipSyncValue != value) {
         m_lipSyncValue = value;
         emit lipSyncValueChanged(value);
+        update();
     }
 }
 
@@ -199,6 +206,7 @@ void Live2DItem::setFollowMouse(bool enabled)
     if(m_followMouse != enabled) {
         m_followMouse = enabled;
         emit followMouseChanged(enabled);
+        update();
     }
 }
 
@@ -207,6 +215,7 @@ void Live2DItem::setReactToTouch(bool enabled)
     if(m_reactToTouch != enabled) {
         m_reactToTouch = enabled;
         emit reactToTouchChanged(enabled);
+        update();
     }
 }
 
@@ -236,6 +245,34 @@ QStringList Live2DItem::motions(const QString &group) const
     return {};
 }
 
+void Live2DItem::setMouseFollowPosition(double x, double y, bool force)
+{
+    if(!force) {
+        if(!m_followMouse && !m_reactToTouch) return;
+        if(!m_followMouse && !m_mousePressed) return;
+    }
+    m_mouseEventQueue.append({
+                                 QMouseEvent::MouseMove,
+                                 -1,
+                                 x,
+                                 y,
+                                 true
+                             });
+    update();
+}
+
+void Live2DItem::resetMouseFollowPosition()
+{
+    m_mouseEventQueue.append({
+                                 QMouseEvent::MouseMove,
+                                 -1,
+                                 width()/2.0,
+                                 height()/2.0,
+                                 true
+                             });
+    update();
+}
+
 void Live2DItem::setExpression(const QString &expressionName)
 {
     m_motionRequestQueue.append({
@@ -244,6 +281,7 @@ void Live2DItem::setExpression(const QString &expressionName)
                                     expressionName,
                                     {}
                                 });
+    update();
 }
 
 void Live2DItem::startMotion(const QString &motionGroup, const QString &motion, Live2DItem::Priority priority)
@@ -254,6 +292,7 @@ void Live2DItem::startMotion(const QString &motionGroup, const QString &motion, 
                                     motion,
                                     priority
                                 });
+    update();
 }
 
 void Live2DItem::stopAllMotions()
@@ -264,6 +303,7 @@ void Live2DItem::stopAllMotions()
                                     {},
                                     {}
                                 });
+    update();
 }
 
 void Live2DItem::defaultLogFunction(const char *message)
@@ -287,7 +327,7 @@ QQuickFramebufferObject::Renderer *Live2DItem::createRenderer() const
         disconnect(m_renderer, &Live2DItemRenderer::tapped, this, nullptr);
         disconnect(m_renderer, &Live2DItemRenderer::touched, this, nullptr);
         disconnect(m_renderer, &Live2DItemRenderer::hitAreasTouched, this, nullptr);
-        disconnect(m_renderer, &Live2DItemRenderer::dragged, this, nullptr);
+        disconnect(m_renderer, &Live2DItemRenderer::cursorMoved, this, nullptr);
         disconnect(m_renderer, &Live2DItemRenderer::modelReady, this, nullptr);
         disconnect(m_renderer, &Live2DItemRenderer::motionFinished, this, nullptr);
     }
@@ -298,7 +338,7 @@ QQuickFramebufferObject::Renderer *Live2DItem::createRenderer() const
     connect(renderer, &Live2DItemRenderer::tapped, this, &Live2DItem::tapped);
     connect(renderer, &Live2DItemRenderer::touched, this, &Live2DItem::touched);
     connect(renderer, &Live2DItemRenderer::hitAreasTouched, this, &Live2DItem::hitAreasTouched);
-    connect(renderer, &Live2DItemRenderer::dragged, this, &Live2DItem::dragged);
+    connect(renderer, &Live2DItemRenderer::cursorMoved, this, &Live2DItem::cursorMoved);
     connect(renderer, &Live2DItemRenderer::modelReady, this, &Live2DItem::modelReady);
     connect(renderer, &Live2DItemRenderer::motionFinished, this, &Live2DItem::motionFinished);
 
@@ -314,7 +354,8 @@ void Live2DItem::hoverMoveEvent(QHoverEvent *event)
                                  QMouseEvent::MouseMove,
                                  -1,
                                  event->posF().x(),
-                                 event->posF().y()
+                                 event->posF().y(),
+                                 false
                              });
     update();
 }
@@ -327,7 +368,8 @@ void Live2DItem::mousePressEvent(QMouseEvent *event)
                                  QMouseEvent::MouseButtonPress,
                                  Qt::LeftButton,
                                  0,
-                                 0
+                                 0,
+                                 false
                              });
     update();
 }
@@ -340,7 +382,8 @@ void Live2DItem::mouseReleaseEvent(QMouseEvent *event)
                                  QMouseEvent::MouseButtonRelease,
                                  Qt::LeftButton,
                                  0,
-                                 0
+                                 0,
+                                 false
                              });
     update();
 }
@@ -353,7 +396,8 @@ void Live2DItem::hoverEnterEvent(QHoverEvent *event)
                                  QMouseEvent::MouseMove,
                                  -1,
                                  event->posF().x(),
-                                 event->posF().y()
+                                 event->posF().y(),
+                                 false
                              });
     update();
 }

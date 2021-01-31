@@ -297,7 +297,7 @@ void Live2DItemRenderer::processMouseEvent(const MouseEventData* event)
     {
         m_mouseX = event->x;
         m_mouseY = event->y;
-        m_view->OnTouchesMoved(m_mouseX, m_mouseY);
+        m_view->OnTouchesMoved(m_mouseX, m_mouseY, event->override);
     }
 }
 

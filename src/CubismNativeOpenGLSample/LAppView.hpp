@@ -80,7 +80,7 @@ public:
     * @param[in]       pointX            スクリーンX座標
     * @param[in]       pointY            スクリーンY座標
     */
-    void OnTouchesMoved(float pointX, float pointY) const;
+    void OnTouchesMoved(float pointX, float pointY, bool override) const;
 
     /**
     * @brief タッチが終了したら呼ばれる。
